@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Prompt Templates</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --panel: #ffffff;
+            --border: #e2ddd0;
+            --accent: #2f6f4f;
+            --text: #2a2a26;
+            --muted: #8a8574;
+            --error: #842029;
+            --error-bg: #f8d7da;
+            --success: #1c5c33;
+            --success-bg: #e3f1e6;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        main {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 0 0 4px;
+        }
+
+        p.lead {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        section.card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        section.card h2 {
+            font-size: 16px;
+            margin: 0 0 4px;
+        }
+
+        section.card p.hint {
+            margin: 0 0 16px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 12px 0 6px;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        button {
+            margin-top: 16px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .result {
+            margin-top: 14px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.success {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .result.error {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+<main>
+    <div>
+        <h1>Prompt Templates</h1>
+        <p class="lead">템플릿을 등록하고 변수를 채워 렌더링 결과를 확인하세요.</p>
+    </div>
+
+    <section class="card">
+        <h2>템플릿 등록</h2>
+        <p class="hint">content에는 <code>{{변수명}}</code> 형태의 placeholder를 사용할 수 있습니다.</p>
+        <form id="register-form">
+            <label for="register-name">이름</label>
+            <input type="text" id="register-name" placeholder="예: greeting" required>
+
+            <label for="register-content">content</label>
+            <textarea id="register-content" rows="3" placeholder="예: 안녕 {{name}}님, 오늘은 {{day}}입니다." required></textarea>
+
+            <button type="submit">등록</button>
+        </form>
+        <div id="register-result" class="result"></div>
+    </section>
+
+    <section class="card">
+        <h2>템플릿 렌더링</h2>
+        <p class="hint">변수는 JSON 객체 형식으로 입력하세요. 예: <code>{"name": "철수", "day": "월요일"}</code></p>
+        <form id="render-form">
+            <label for="render-name">템플릿 이름</label>
+            <input type="text" id="render-name" placeholder="예: greeting" required>
+
+            <label for="render-variables">변수 (JSON)</label>
+            <textarea id="render-variables" rows="3" placeholder='{"name": "철수"}'>{}</textarea>
+
+            <button type="submit">렌더링</button>
+        </form>
+        <div id="render-result" class="result"></div>
+    </section>
+</main>
+<script>
+    function showResult(el, type, text) {
+        el.textContent = text;
+        el.className = 'result show ' + type;
+    }
+
+    document.getElementById('register-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const resultEl = document.getElementById('register-result');
+        const name = document.getElementById('register-name').value.trim();
+        const content = document.getElementById('register-content').value.trim();
+
+        try {
+            const response = await fetch('/api/prompt-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, content: content })
+            });
+
+            if (response.status === 201) {
+                const data = await response.json();
+                showResult(resultEl, 'success', '등록되었습니다. (templateId: ' + data.templateId + ')');
+                document.getElementById('render-name').value = name;
+            } else if (response.status === 409) {
+                showResult(resultEl, 'error', '이미 존재하는 이름입니다: ' + name);
+            } else if (response.status === 400) {
+                showResult(resultEl, 'error', '이름과 content를 모두 입력해주세요.');
+            } else {
+                showResult(resultEl, 'error', '등록에 실패했습니다. (HTTP ' + response.status + ')');
+            }
+        } catch (error) {
+            showResult(resultEl, 'error', error.message);
+        }
+    });
+
+    document.getElementById('render-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const resultEl = document.getElementById('render-result');
+        const name = document.getElementById('render-name').value.trim();
+        const variablesText = document.getElementById('render-variables').value.trim() || '{}';
+
+        let variables;
+        try {
+            variables = JSON.parse(variablesText);
+        } catch (error) {
+            showResult(resultEl, 'error', '변수는 올바른 JSON 형식이어야 합니다.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/prompt-templates/' + encodeURIComponent(name) + '/render', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variables: variables })
+            });
+
+            if (response.status === 200) {
+                const data = await response.json();
+                showResult(resultEl, 'success', data.rendered);
+            } else if (response.status === 404) {
+                showResult(resultEl, 'error', '템플릿을 찾을 수 없습니다: ' + name);
+            } else if (response.status === 400) {
+                showResult(resultEl, 'error', '필요한 변수가 누락되었거나 요청이 올바르지 않습니다.');
+            } else {
+                showResult(resultEl, 'error', '렌더링에 실패했습니다. (HTTP ' + response.status + ')');
+            }
+        } catch (error) {
+            showResult(resultEl, 'error', error.message);
+        }
+    });
+</script>
+</body>
+</html>
