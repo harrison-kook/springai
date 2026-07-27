@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Claude Chat</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --panel: #ffffff;
+            --border: #e2ddd0;
+            --user-bubble: #2f6f4f;
+            --ai-bubble: #ece7da;
+            --text: #2a2a26;
+            --muted: #8a8574;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        main {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+        }
+
+        header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        header p {
+            margin: 4px 0 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .bubble.user {
+            align-self: flex-end;
+            background: var(--user-bubble);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bubble.ai {
+            align-self: flex-start;
+            background: var(--ai-bubble);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+
+        .bubble.error {
+            align-self: center;
+            background: #f8d7da;
+            color: #842029;
+            font-size: 13px;
+        }
+
+        .bubble.pending {
+            align-self: flex-start;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        form {
+            display: flex;
+            gap: 8px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        #content {
+            flex: 1;
+            resize: none;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        button {
+            padding: 0 18px;
+            border: none;
+            border-radius: 10px;
+            background: var(--user-bubble);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Claude Chat</h1>
+        <p id="status">대화를 준비하는 중...</p>
+    </header>
+    <div id="messages"></div>
+    <form id="chat-form">
+        <textarea id="content" rows="1" placeholder="메시지를 입력하세요" disabled></textarea>
+        <button id="send" type="submit" disabled>전송</button>
+    </form>
+</main>
+<script>
+    const statusEl = document.getElementById('status');
+    const messagesEl = document.getElementById('messages');
+    const formEl = document.getElementById('chat-form');
+    const contentEl = document.getElementById('content');
+    const sendEl = document.getElementById('send');
+
+    let conversationId = null;
+
+    function addBubble(role, text) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble ' + role;
+        bubble.textContent = text;
+        messagesEl.appendChild(bubble);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return bubble;
+    }
+
+    function renderMessages(messages) {
+        messagesEl.innerHTML = '';
+        messages.forEach(function (message) {
+            addBubble(message.role === 'USER' ? 'user' : 'ai', message.content);
+        });
+    }
+
+    function setInputEnabled(enabled) {
+        contentEl.disabled = !enabled;
+        sendEl.disabled = !enabled;
+    }
+
+    async function startConversation() {
+        try {
+            const response = await fetch('/api/conversations', { method: 'POST' });
+            if (!response.ok) {
+                throw new Error('대화를 시작하지 못했습니다.');
+            }
+            const data = await response.json();
+            conversationId = data.conversationId;
+            statusEl.textContent = 'Claude와 대화를 시작하세요.';
+            setInputEnabled(true);
+            contentEl.focus();
+        } catch (error) {
+            statusEl.textContent = '대화 시작에 실패했습니다.';
+            addBubble('error', error.message);
+        }
+    }
+
+    async function sendMessage(content) {
+        addBubble('user', content);
+        const pending = addBubble('pending', 'Claude가 응답을 작성하는 중...');
+        setInputEnabled(false);
+
+        try {
+            const response = await fetch('/api/conversations/' + conversationId + '/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            });
+
+            pending.remove();
+
+            if (!response.ok) {
+                throw new Error('메시지 전송에 실패했습니다. (HTTP ' + response.status + ')');
+            }
+
+            const data = await response.json();
+            renderMessages(data.messages);
+        } catch (error) {
+            pending.remove();
+            addBubble('error', error.message);
+        } finally {
+            setInputEnabled(true);
+            contentEl.focus();
+        }
+    }
+
+    formEl.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const content = contentEl.value.trim();
+        if (!content || !conversationId) {
+            return;
+        }
+        contentEl.value = '';
+        sendMessage(content);
+    });
+
+    contentEl.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            formEl.requestSubmit();
+        }
+    });
+
+    startConversation();
+</script>
+</body>
+</html>
