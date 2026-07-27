@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>SpringAI Examples</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --panel: #ffffff;
+            --border: #e2ddd0;
+            --accent: #2f6f4f;
+            --text: #2a2a26;
+            --muted: #8a8574;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 48px 16px;
+        }
+
+        main {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin: 0 0 4px;
+        }
+
+        p.lead {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .links {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        a.card {
+            display: block;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.15s ease;
+        }
+
+        a.card:hover {
+            border-color: var(--accent);
+        }
+
+        a.card h2 {
+            margin: 0 0 6px;
+            font-size: 16px;
+            color: var(--accent);
+        }
+
+        a.card p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+<main>
+    <div>
+        <h1>SpringAI Examples</h1>
+        <p class="lead">DDD 바운디드 컨텍스트별 예시 페이지 모음입니다.</p>
+    </div>
+
+    <div class="links">
+        <a class="card" href="/chat">
+            <h2>Conversation — Chat</h2>
+            <p>Claude API와 실시간으로 대화하는 채팅 페이지</p>
+        </a>
+        <a class="card" href="/prompt-templates">
+            <h2>Prompt Template</h2>
+            <p>템플릿을 등록하고 변수를 채워 렌더링 결과를 확인하는 페이지</p>
+        </a>
+        <a class="card" href="/members">
+            <h2>Member</h2>
+            <p>회원을 등록하고 id로 조회하는 페이지</p>
+        </a>
+    </div>
+</main>
+</body>
+</html>
