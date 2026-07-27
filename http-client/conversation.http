@@ -1,0 +1,61 @@
+// Conversation 도메인 REST API 수동 테스트 (IntelliJ HTTP Client)
+//
+// 실행 전: ANTHROPIC_API_KEY를 설정한 뒤 ./gradlew bootRun 으로 서버를 띄워주세요.
+// 우측 상단에서 환경을 "local"로 선택하고, 각 요청 왼쪽 ▶ 아이콘으로 순서대로 실행하세요.
+
+### 1. 대화 시작
+POST {{baseUrl}}/api/conversations
+
+> {%
+client.test("201 Created", function () {
+    client.assert(response.status === 201, "expected 201 but got " + response.status);
+});
+client.global.set("conversationId", response.body.conversationId);
+%}
+
+### 2. 메시지 전송 (실제 Claude 응답 확인)
+POST {{baseUrl}}/api/conversations/{{conversationId}}/messages
+Content-Type: application/json
+
+{
+  "content": "Hello, what AI model are you? Answer in one short sentence."
+}
+
+> {%
+client.test("200 OK", function () {
+    client.assert(response.status === 200, "expected 200 but got " + response.status);
+});
+client.test("AI 응답이 포함된다", function () {
+    var messages = response.body.messages;
+    client.assert(messages.length === 2, "메시지가 2개여야 합니다");
+    client.assert(messages[1].role === "AI", "두 번째 메시지는 AI여야 합니다");
+});
+%}
+
+### 3. 존재하지 않는 대화 id로 요청하면 404
+POST {{baseUrl}}/api/conversations/00000000-0000-0000-0000-000000000000/messages
+Content-Type: application/json
+
+{
+  "content": "hello"
+}
+
+> {%
+client.test("404 Not Found", function () {
+    client.assert(response.status === 404, "expected 404 but got " + response.status);
+});
+%}
+
+### 4. 빈 content로 요청하면 400
+POST {{baseUrl}}/api/conversations/{{conversationId}}/messages
+Content-Type: application/json
+
+{
+  "content": ""
+}
+
+> {%
+client.test("400 Bad Request", function () {
+    client.assert(response.status === 400, "expected 400 but got " + response.status);
+});
+%}

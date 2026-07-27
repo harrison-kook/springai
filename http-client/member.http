@@ -1,0 +1,53 @@
+// Member 도메인 REST API 수동 테스트 (IntelliJ HTTP Client)
+
+### 1. 회원 등록
+POST {{baseUrl}}/api/members
+Content-Type: application/json
+
+{
+  "email": "chulsoo-{{$timestamp}}@example.com",
+  "name": "철수"
+}
+
+> {%
+client.test("201 Created", function () {
+    client.assert(response.status === 201, "expected 201 but got " + response.status);
+});
+client.global.set("memberId", response.body.memberId);
+%}
+
+### 2. id로 조회
+GET {{baseUrl}}/api/members/{{memberId}}
+
+> {%
+client.test("200 OK", function () {
+    client.assert(response.status === 200, "expected 200 but got " + response.status);
+});
+client.test("이름 확인", function () {
+    client.assert(response.body.name === "철수", "이름이 예상과 다릅니다: " + response.body.name);
+});
+%}
+
+### 3. 존재하지 않는 id로 조회하면 404
+GET {{baseUrl}}/api/members/00000000-0000-0000-0000-000000000000
+
+> {%
+client.test("404 Not Found", function () {
+    client.assert(response.status === 404, "expected 404 but got " + response.status);
+});
+%}
+
+### 4. 이메일 형식이 올바르지 않으면 400
+POST {{baseUrl}}/api/members
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "name": "영희"
+}
+
+> {%
+client.test("400 Bad Request", function () {
+    client.assert(response.status === 400, "expected 400 but got " + response.status);
+});
+%}
