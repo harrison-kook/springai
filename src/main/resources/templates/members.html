@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Members</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --panel: #ffffff;
+            --border: #e2ddd0;
+            --accent: #2f6f4f;
+            --text: #2a2a26;
+            --muted: #8a8574;
+            --error: #842029;
+            --error-bg: #f8d7da;
+            --success: #1c5c33;
+            --success-bg: #e3f1e6;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        main {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 0 0 4px;
+        }
+
+        p.lead {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        section.card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        section.card h2 {
+            font-size: 16px;
+            margin: 0 0 4px;
+        }
+
+        section.card p.hint {
+            margin: 0 0 16px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 12px 0 6px;
+        }
+
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        button {
+            margin-top: 16px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .result {
+            margin-top: 14px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.success {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .result.error {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+<main>
+    <div>
+        <h1>Members</h1>
+        <p class="lead">회원을 등록하고 id로 조회해보세요.</p>
+    </div>
+
+    <section class="card">
+        <h2>회원 등록</h2>
+        <p class="hint">이메일은 <code>@</code>를 포함한 형식이어야 합니다.</p>
+        <form id="register-form">
+            <label for="register-email">이메일</label>
+            <input type="email" id="register-email" placeholder="chulsoo@example.com" required>
+
+            <label for="register-name">이름</label>
+            <input type="text" id="register-name" placeholder="철수" required>
+
+            <button type="submit">등록</button>
+        </form>
+        <div id="register-result" class="result"></div>
+    </section>
+
+    <section class="card">
+        <h2>id로 조회</h2>
+        <p class="hint">등록 후 자동으로 채워진 id로 바로 조회할 수 있습니다.</p>
+        <form id="lookup-form">
+            <label for="lookup-id">회원 id</label>
+            <input type="text" id="lookup-id" placeholder="UUID" required>
+
+            <button type="submit">조회</button>
+        </form>
+        <div id="lookup-result" class="result"></div>
+    </section>
+</main>
+<script>
+    function showResult(el, type, text) {
+        el.textContent = text;
+        el.className = 'result show ' + type;
+    }
+
+    document.getElementById('register-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const resultEl = document.getElementById('register-result');
+        const email = document.getElementById('register-email').value.trim();
+        const name = document.getElementById('register-name').value.trim();
+
+        try {
+            const response = await fetch('/api/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, name: name })
+            });
+
+            if (response.status === 201) {
+                const data = await response.json();
+                showResult(resultEl, 'success', '등록되었습니다. (memberId: ' + data.memberId + ')');
+                document.getElementById('lookup-id').value = data.memberId;
+            } else if (response.status === 409) {
+                showResult(resultEl, 'error', '이미 존재하는 이메일입니다: ' + email);
+            } else if (response.status === 400) {
+                showResult(resultEl, 'error', '이메일 형식 또는 이름을 확인해주세요.');
+            } else {
+                showResult(resultEl, 'error', '등록에 실패했습니다. (HTTP ' + response.status + ')');
+            }
+        } catch (error) {
+            showResult(resultEl, 'error', error.message);
+        }
+    });
+
+    document.getElementById('lookup-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const resultEl = document.getElementById('lookup-result');
+        const id = document.getElementById('lookup-id').value.trim();
+
+        try {
+            const response = await fetch('/api/members/' + encodeURIComponent(id));
+
+            if (response.status === 200) {
+                const data = await response.json();
+                showResult(resultEl, 'success', data.name + ' <' + data.email + '>');
+            } else if (response.status === 404) {
+                showResult(resultEl, 'error', '해당 id의 회원을 찾을 수 없습니다: ' + id);
+            } else {
+                showResult(resultEl, 'error', '조회에 실패했습니다. (HTTP ' + response.status + ')');
+            }
+        } catch (error) {
+            showResult(resultEl, 'error', error.message);
+        }
+    });
+</script>
+</body>
+</html>
