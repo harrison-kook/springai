@@ -3,7 +3,9 @@ package com.tororang.springai.conversation.infrastructure;
 import com.tororang.springai.conversation.application.SendMessageUseCase;
 import com.tororang.springai.conversation.application.StartConversationUseCase;
 import com.tororang.springai.conversation.domain.ConversationRepository;
+import com.tororang.springai.conversation.domain.KnowledgeRetriever;
 import com.tororang.springai.conversation.domain.ResponseGenerator;
+import com.tororang.springai.knowledge.application.SearchKnowledgeUseCase;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.context.annotation.Bean;
@@ -23,13 +25,18 @@ public class ConversationConfig {
     }
 
     @Bean
+    public KnowledgeRetriever knowledgeRetriever(SearchKnowledgeUseCase searchKnowledgeUseCase) {
+        return new KnowledgeSearchRetriever(searchKnowledgeUseCase);
+    }
+
+    @Bean
     public StartConversationUseCase startConversationUseCase(ConversationRepository conversationRepository) {
         return new StartConversationUseCase(conversationRepository);
     }
 
     @Bean
     public SendMessageUseCase sendMessageUseCase(ConversationRepository conversationRepository,
-            ResponseGenerator responseGenerator) {
-        return new SendMessageUseCase(conversationRepository, responseGenerator);
+            ResponseGenerator responseGenerator, KnowledgeRetriever knowledgeRetriever) {
+        return new SendMessageUseCase(conversationRepository, responseGenerator, knowledgeRetriever);
     }
 }

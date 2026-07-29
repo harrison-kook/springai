@@ -1,0 +1,67 @@
+// Knowledge(RAG) 도메인 REST API 수동 테스트 (IntelliJ HTTP Client)
+//
+// 실행 전: 로컬 Postgres(pgvector 포함)와 Ollama(nomic-embed-text)가 떠 있어야 합니다.
+// 자세한 준비 과정은 README.md의 "RAG(Knowledge) 로컬 실행 준비"를 참고하세요.
+// 우측 상단에서 환경을 "local"로 선택하고, 각 요청 왼쪽 ▶ 아이콘으로 순서대로 실행하세요.
+
+### 1. 문서 등록
+POST {{baseUrl}}/api/knowledge/documents
+Content-Type: application/json
+
+{
+  "title": "연차 휴가 정책",
+  "content": "입사 1년 이상 근무한 직원은 연간 15일의 연차를 사용할 수 있습니다. 연차는 다음 해로 이월되지 않고 소멸됩니다."
+}
+
+> {%
+client.test("201 Created", function () {
+    client.assert(response.status === 201, "expected 201 but got " + response.status);
+});
+client.global.set("documentId", response.body.documentId);
+%}
+
+### 2. 등록한 문서와 관련된 질의로 검색 (실제 임베딩/유사도 검색 확인)
+POST {{baseUrl}}/api/knowledge/search
+Content-Type: application/json
+
+{
+  "query": "연차는 며칠까지 쓸 수 있어?"
+}
+
+> {%
+client.test("200 OK", function () {
+    client.assert(response.status === 200, "expected 200 but got " + response.status);
+});
+client.test("검색 결과가 존재한다", function () {
+    client.assert(response.body.results.length > 0, "검색 결과가 비어 있습니다");
+});
+%}
+
+### 3. title이 비어있으면 400
+POST {{baseUrl}}/api/knowledge/documents
+Content-Type: application/json
+
+{
+  "title": "",
+  "content": "본문 내용"
+}
+
+> {%
+client.test("400 Bad Request", function () {
+    client.assert(response.status === 400, "expected 400 but got " + response.status);
+});
+%}
+
+### 4. query가 비어있으면 400
+POST {{baseUrl}}/api/knowledge/search
+Content-Type: application/json
+
+{
+  "query": ""
+}
+
+> {%
+client.test("400 Bad Request", function () {
+    client.assert(response.status === 400, "expected 400 but got " + response.status);
+});
+%}
