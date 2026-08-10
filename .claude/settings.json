@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew test *)",
+      "Bash(./gradlew integrationTest *)",
+      "Bash(unzip -l *)",
+      "Bash(./gradlew compile*)",
+      "Bash(tasklist *)"
+    ]
+  }
+}
