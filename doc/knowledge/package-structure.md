@@ -10,31 +10,40 @@ com.tororang.springai.knowledge
 │   ├── Document.java               # 엔티티: title + content
 │   ├── DocumentChunk.java          # 값 객체: documentId + content + order
 │   ├── DocumentChunker.java        # 도메인 서비스: Document를 고정 크기로 분할 (순수 로직, 외부 의존 없음)
+│   ├── DocumentFileType.java       # 값 객체: 업로드 파일 확장자(pdf/xlsx/docx/md) 판별
 │   ├── EmbeddingVector.java        # 값 객체: 임베딩 벡터 (List<Float>, 불변)
 │   ├── EmbeddedChunk.java          # 값 객체: 저장용 (DocumentChunk + EmbeddingVector)
 │   ├── RetrievedChunk.java         # 값 객체: 검색 결과용 (DocumentChunk + score)
 │   ├── EmbeddingGenerator.java     # 포트: 텍스트 → 벡터 변환 인터페이스
+│   ├── DocumentContentExtractor.java  # 포트: 업로드 파일 바이트 → 텍스트 추출 인터페이스
 │   └── KnowledgeRepository.java    # 포트: 벡터 저장/유사도 검색 인터페이스
 │
 ├── application
-│   ├── IndexDocumentUseCase.java   # 유스케이스: 문서 등록 → 청킹 → 임베딩 → 저장
-│   ├── SearchKnowledgeUseCase.java # 유스케이스: 질의 임베딩 → 유사 청크 검색
+│   ├── IndexDocumentUseCase.java       # 유스케이스: 문서 등록(title+content) → 청킹 → 임베딩 → 저장
+│   ├── IndexDocumentFileUseCase.java   # 유스케이스: 업로드 파일 → 텍스트 추출 → IndexDocumentUseCase에 위임 (로직 재사용)
+│   ├── SearchKnowledgeUseCase.java     # 유스케이스: 질의 임베딩 → 유사 청크 검색
 │   └── dto
 │       ├── IndexDocumentCommand.java
+│       ├── IndexDocumentFileCommand.java
 │       └── RetrievedChunkResult.java
 │
 ├── infrastructure
-│   ├── SpringAiEmbeddingGenerator.java   # EmbeddingGenerator 구현체, Ollama EmbeddingModel(nomic-embed-text) 사용
-│   ├── PgVectorKnowledgeRepository.java  # KnowledgeRepository 구현체, JdbcTemplate + pgvector-java(PGvector)로 직접 SQL 실행
-│   └── KnowledgeConfig.java              # 포트 ↔ 구현체, 유스케이스 빈 와이어링. chunk-size/top-k는 application.yaml(`knowledge.*`)에서 주입
+│   ├── SpringAiEmbeddingGenerator.java     # EmbeddingGenerator 구현체, Ollama EmbeddingModel(nomic-embed-text) 사용
+│   ├── ApacheDocumentContentExtractor.java # DocumentContentExtractor 구현체, PDFBox(PDF)/POI(XLSX,DOCX) 사용, MD는 UTF-8 텍스트로 그대로 사용
+│   ├── PgVectorKnowledgeRepository.java    # KnowledgeRepository 구현체, JdbcTemplate + pgvector-java(PGvector)로 직접 SQL 실행
+│   └── KnowledgeConfig.java                # 포트 ↔ 구현체, 유스케이스 빈 와이어링. chunk-size/top-k는 application.yaml(`knowledge.*`)에서 주입
 │
 └── presentation
-    ├── KnowledgeController.java       # POST /api/knowledge/documents, POST /api/knowledge/search
+    ├── KnowledgeController.java       # POST /api/knowledge/documents, POST /api/knowledge/documents/file(multipart), POST /api/knowledge/search
     ├── KnowledgePageController.java   # GET /knowledge (Thymeleaf 페이지)
     └── dto
         ├── IndexDocumentRequest.java / IndexDocumentResponse.java
         └── SearchKnowledgeRequest.java / SearchKnowledgeResponse.java
 ```
+
+## 파일 업로드 지원 (pdf, xlsx, docx, md)
+
+`IndexDocumentUseCase`(텍스트 직접 입력)와 별개로 `IndexDocumentFileUseCase`를 두어 파일 업로드 흐름을 처리한다. `DocumentFileType.fromFilename()`이 지원 확장자를 판별하고(그 외는 `IllegalArgumentException` → 400), `DocumentContentExtractor` 포트로 텍스트를 추출한 뒤 `IndexDocumentCommand`로 변환해 기존 `IndexDocumentUseCase`에 위임한다(청킹/임베딩/저장 로직 중복 없음). PDF는 PDFBox, XLSX/DOCX는 Apache POI를 사용하고, MD는 파싱 없이 UTF-8 텍스트 그대로 사용한다.
 
 DB 스키마(`CREATE EXTENSION vector`, `knowledge_chunk` 테이블)는 `src/main/resources/db/knowledge-schema.sql`에 있으며, 애플리케이션이 자동으로 실행하지 않고 로컬 Postgres에 1회 수동으로 적용해야 합니다.
 

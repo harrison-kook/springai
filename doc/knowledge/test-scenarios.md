@@ -24,12 +24,17 @@
 - [x] content가 chunkSize로 나누어떨어지지 않으면 마지막 청크는 나머지만큼 생성된다.
 - [x] 청크는 순서대로 order가 증가한다.
 
-### 1.4 EmbeddingVector
+### 1.4 DocumentFileType
+- [x] pdf/xlsx/docx/md 확장자면 해당 파일타입을 반환한다.
+- [x] 확장자 대소문자를 구분하지 않는다.
+- [x] 지원하지 않는 확장자, 확장자 없음, 파일명이 null/빈문자열이면 `IllegalArgumentException`이 발생한다.
+
+### 1.5 EmbeddingVector
 - [x] values가 `null`이거나 비어있으면 `IllegalArgumentException`이 발생한다.
 - [x] 유효한 값이면 정상적으로 생성되고, 같은 값이면 동등하다.
 - [x] 생성 이후 원본 리스트를 변경해도 영향을 받지 않고, values는 외부에서 수정할 수 없다(방어적 복사).
 
-### 1.5 EmbeddedChunk / RetrievedChunk
+### 1.6 EmbeddedChunk / RetrievedChunk
 - [x] chunk 또는 embedding이 `null`이면 `IllegalArgumentException`이 발생한다(EmbeddedChunk).
 - [x] chunk가 `null`이면 `IllegalArgumentException`이 발생한다(RetrievedChunk).
 
@@ -47,6 +52,12 @@
 - [x] 검색 결과가 없으면 빈 리스트를 반환한다.
 - [x] 저장소 조회에는 설정된 topK가 그대로 전달된다.
 
+### 2.3 IndexDocumentFileUseCase (`DocumentContentExtractor` mock, 실제 `IndexDocumentUseCase`는 mock 포트로 구성)
+- [x] 파일을 색인하면 추출된 텍스트가 청크로 분할되어 저장된다.
+- [x] 추출기에는 파일명으로 판별한 파일타입과 파일 내용이 그대로 전달된다.
+- [x] 지원하지 않는 확장자면 예외가 발생하고 추출기와 저장소는 호출되지 않는다.
+- [x] 색인된 문서의 id가 반환된다.
+
 ## 3. Infrastructure 계층
 
 ### 3.1 SpringAiEmbeddingGenerator (단위 테스트, `EmbeddingModel` mock)
@@ -61,11 +72,22 @@
 - [x] 저장한 청크 중 쿼리 벡터와 가장 유사한 청크가 먼저 조회된다(코사인 유사도).
 - [x] topK만큼만 조회된다.
 
+### 3.4 ApacheDocumentContentExtractor (단위 테스트, PDFBox/POI로 샘플 파일을 직접 생성해 검증, 외부 연동 없음)
+- [x] PDF에서 텍스트를 추출한다.
+- [x] XLSX에서 텍스트를 추출한다.
+- [x] DOCX에서 텍스트를 추출한다.
+- [x] MD는 파싱 없이 그대로 텍스트로 추출한다.
+- [x] 손상된 파일이면 `IllegalArgumentException`이 발생한다.
+
 ## 4. Presentation 계층 (MockMvc 슬라이스 테스트)
 
 ### 4.1 KnowledgeController
 - [x] 문서 등록 요청 시 `201 Created`와 함께 documentId를 반환한다.
 - [x] title이나 content가 비어있으면 `400 Bad Request`를 반환한다.
+- [x] 파일 업로드(multipart)로 문서 등록 요청 시 `201 Created`와 함께 documentId를 반환한다.
+- [x] 파일 업로드 시 title이 비어있으면 `400 Bad Request`를 반환한다.
+- [x] 파일 업로드 시 파일이 비어있으면 `400 Bad Request`를 반환한다.
+- [x] 지원하지 않는 확장자면 `400 Bad Request`를 반환한다.
 - [x] 검색 요청 시 `200 OK`와 함께 결과 목록을 반환한다.
 - [x] query가 비어있으면 `400 Bad Request`를 반환한다.
 - [x] 검색 결과가 없으면 빈 목록을 반환한다.
@@ -93,6 +115,7 @@
 
 - [x] `POST /api/knowledge/documents`로 문서를 등록하고 `POST /api/knowledge/search`로 관련 질의를 검색하면, 관련 문서가 관련 없는 문서보다 높은 score로 반환된다.
 - [x] `/api/conversations/{id}/messages`로 메시지를 보내면 로그(`promptLength`)에 검색된 컨텍스트가 프롬프트에 포함된 것이 확인된다(Claude 호출 자체는 유효한 `ANTHROPIC_API_KEY`가 있어야 성공한다).
+- [x] `/knowledge` 화면에서 "파일 업로드" 탭으로 전환해 md 파일을 업로드하면 등록되고, 이후 검색에서 해당 내용이 조회된다.
 
 ## 구현 순서 (TDD)
 
@@ -101,5 +124,6 @@
 3. `infrastructure`: `SpringAiEmbeddingGenerator` → `PgVectorKnowledgeRepository` → `KnowledgeConfig`
 4. `presentation`: `KnowledgeController` → `KnowledgePageController`
 5. `conversation` 통합: `KnowledgeRetriever`(포트) → `SendMessageUseCase`/`ResponseGenerator` 확장 → `KnowledgeSearchRetriever`(구현체) → `ConversationConfig` 재와이어링
+6. 파일 업로드: `DocumentFileType`(포트 아님, 값 객체) → `DocumentContentExtractor`(포트) → `IndexDocumentFileUseCase` → `ApacheDocumentContentExtractor` → `KnowledgeController`(multipart 엔드포인트) → `knowledge.html`(업로드 폼)
 
 각 시나리오는 "실패하는 테스트 작성(Red) → 최소 구현으로 통과(Green) → 구조 정리(Refactor)" 순서로 하나씩 완료 처리했다.

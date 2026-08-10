@@ -1,8 +1,10 @@
 package com.tororang.springai.knowledge.infrastructure;
 
+import com.tororang.springai.knowledge.application.IndexDocumentFileUseCase;
 import com.tororang.springai.knowledge.application.IndexDocumentUseCase;
 import com.tororang.springai.knowledge.application.SearchKnowledgeUseCase;
 import com.tororang.springai.knowledge.domain.DocumentChunker;
+import com.tororang.springai.knowledge.domain.DocumentContentExtractor;
 import com.tororang.springai.knowledge.domain.EmbeddingGenerator;
 import com.tororang.springai.knowledge.domain.KnowledgeRepository;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -34,5 +36,16 @@ public class KnowledgeConfig {
     public SearchKnowledgeUseCase searchKnowledgeUseCase(EmbeddingGenerator embeddingGenerator,
             KnowledgeRepository knowledgeRepository, @Value("${knowledge.top-k}") int topK) {
         return new SearchKnowledgeUseCase(embeddingGenerator, knowledgeRepository, topK);
+    }
+
+    @Bean
+    public DocumentContentExtractor documentContentExtractor() {
+        return new ApacheDocumentContentExtractor();
+    }
+
+    @Bean
+    public IndexDocumentFileUseCase indexDocumentFileUseCase(DocumentContentExtractor documentContentExtractor,
+            IndexDocumentUseCase indexDocumentUseCase) {
+        return new IndexDocumentFileUseCase(documentContentExtractor, indexDocumentUseCase);
     }
 }
