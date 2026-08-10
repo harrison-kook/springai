@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: springai-pgvector
+    environment:
+      POSTGRES_DB: springai_rag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecret
+    ports:
+      - "5432:5432"
+    volumes:
+      - springai_pgvector_data:/var/lib/postgresql/data
+      - ./src/main/resources/db/knowledge-schema.sql:/docker-entrypoint-initdb.d/knowledge-schema.sql
+
+volumes:
+  springai_pgvector_data:
+    name: springai_pgvector_data
