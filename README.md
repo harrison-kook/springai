@@ -1,5 +1,7 @@
 # SpringAI
 
+[![CI](https://github.com/harrison-kook/springai/actions/workflows/ci.yml/badge.svg)](https://github.com/harrison-kook/springai/actions/workflows/ci.yml)
+
 Spring AI(Anthropic Claude)를 사용해 DDD 아키텍처와 TDD 개발 방식을 연습하기 위한 예제 프로젝트입니다. 개발 컨벤션은 [CLAUDE.md](./CLAUDE.md)에, 각 도메인의 설계 배경과 테스트 시나리오는 [doc/](./doc) 폴더에 정리되어 있습니다.
 
 - 저장소: https://github.com/harrison-kook/springai
